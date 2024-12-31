@@ -1,11 +1,13 @@
 class Summary {
   final double totalPnl;
   final double todayPnl;
+  final double periodPnl;
   final int activeTrades;
 
   Summary({
     required this.totalPnl,
     required this.todayPnl,
+    required this.periodPnl,
     required this.activeTrades,
   });
 
@@ -17,6 +19,9 @@ class Summary {
       todayPnl: json['today_pnl'] is String
           ? double.parse(json['today_pnl'])
           : json['today_pnl'].toDouble(),
+      periodPnl: json['period_pnl'] is String
+          ? double.parse(json['period_pnl'])
+          : json['period_pnl'].toDouble(),
       activeTrades: json['active_trades'],
     );
   }
@@ -36,11 +41,11 @@ class Order {
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json['id'],
-      price: json['price'] is String 
-          ? double.parse(json['price']) 
+      price: json['price'] is String
+          ? double.parse(json['price'])
           : json['price'].toDouble(),
-      size: json['size'] is String 
-          ? double.parse(json['size']) 
+      size: json['size'] is String
+          ? double.parse(json['size'])
           : json['size'].toDouble(),
     );
   }
@@ -74,18 +79,18 @@ class Trade {
       id: json['id'],
       symbol: json['symbol'],
       type: json['type'],
-      entryPrice: json['entry_price'] is String 
-          ? double.parse(json['entry_price']) 
+      entryPrice: json['entry_price'] is String
+          ? double.parse(json['entry_price'])
           : json['entry_price'].toDouble(),
-      currentPrice: json['current_price'] is String 
-          ? double.parse(json['current_price']) 
+      currentPrice: json['current_price'] is String
+          ? double.parse(json['current_price'])
           : json['current_price'].toDouble(),
-      pnl: json['pnl'] is String 
-          ? double.parse(json['pnl']) 
+      pnl: json['pnl'] is String
+          ? double.parse(json['pnl'])
           : json['pnl'].toDouble(),
       canCancel: json['can_cancel'],
-      averagePrice: json['average_price'] is String 
-          ? double.parse(json['average_price']) 
+      averagePrice: json['average_price'] is String
+          ? double.parse(json['average_price'])
           : json['average_price'].toDouble(),
       orders: (json['orders'] as List)
           .map((order) => Order.fromJson(order))
