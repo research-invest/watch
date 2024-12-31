@@ -49,6 +49,44 @@ class _WatchScreenState extends State<WatchScreen> {
   List<Favorite> favorites = [];
   Timer? _timer;
   Summary? _lastSummary;
+  Color backgroundColor = Colors.black;
+
+  // Функция для определения цвета фона
+  Color _getBackgroundColor() {
+    // Находим BTC в избранном
+    final btc = favorites.firstWhere(
+      (f) => f.code == 'BTCUSDT',
+      orElse: () => Favorite(
+        id: 0,
+        code: 'BTCUSDT',
+        price: 0,
+        price24h: 0,
+        price4h: 0,
+        price1h: 0,
+        price24hPercent: 0,
+        price4hPercent: 0,
+        price1hPercent: 0,
+      ),
+    );
+
+    if (btc.id == 0) {
+      // Если BTC не найден, возвращаем случайный цвет
+      return Color((DateTime.now().millisecondsSinceEpoch % 0xFFFFFF).toInt())
+          .withOpacity(0.3);
+    }
+
+    if (btc.price > btc.price1h) {
+      // Цена выросла - зеленоватый фон
+      return Colors.green.withOpacity(0.5);
+    } else if (btc.price < btc.price1h) {
+      // Цена упала - красноватый фон
+      return Colors.red.withOpacity(0.3);
+    } else {
+      // Цена не изменилась - случайный цвет
+      return Color((DateTime.now().millisecondsSinceEpoch % 0xFFFFFF).toInt())
+          .withOpacity(0.3);
+    }
+  }
 
   @override
   void initState() {
@@ -112,6 +150,8 @@ class _WatchScreenState extends State<WatchScreen> {
               .map((fav) => Favorite.fromJson(fav))
               .toList();
           debugText = 'Data loaded successfully';
+          // Обновляем цвет фона
+          backgroundColor = _getBackgroundColor();
         });
 
         // Проверяем изменения в PNL
@@ -264,7 +304,7 @@ class _WatchScreenState extends State<WatchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: backgroundColor,
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(8.0),

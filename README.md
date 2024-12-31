@@ -6,6 +6,8 @@ flutter pub get
 
 flutter build apk --release
 
+flutter pub run flutter_launcher_icons
+
 
 
 A new Flutter project.
