@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:vibration/vibration.dart';
 import 'dart:convert';
@@ -8,6 +7,7 @@ import '../models.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import 'login_screen.dart';
+import '../widgets/price_history_dialog.dart';
 
 class WatchScreen extends StatefulWidget {
   const WatchScreen({super.key});
@@ -512,102 +512,110 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                     ),
                   ),
                   const SizedBox(height: 4),
-                  ...favorites.map((fav) => Padding(
+                  ...favorites.map((favorite) => Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.withOpacity(0.5)),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                fav.code,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                    child: InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => PriceHistoryDialog(symbol: favorite.code),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  favorite.code,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                fav.price.toStringAsFixed(
-                                    fav.price < 1 ? 4 : 1
+                                Text(
+                                  favorite.price.toStringAsFixed(
+                                      favorite.price < 1 ? 4 : 1
+                                  ),
+                                  style: const TextStyle(color: Colors.white),
                                 ),
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Text(
-                                    '1h: ',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text(
+                                      '1h: ',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    '${fav.price1hPercent.toStringAsFixed(2)}%',
-                                    style: TextStyle(
-                                      color: fav.price1hPercent >= 0
-                                          ? Colors.green
-                                          : Colors.red,
-                                      fontSize: 12,
+                                    Text(
+                                      '${favorite.price1hPercent.toStringAsFixed(2)}%',
+                                      style: TextStyle(
+                                        color: favorite.price1hPercent >= 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  const Text(
-                                    '4h: ',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      '4h: ',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    '${fav.price4hPercent.toStringAsFixed(2)}%',
-                                    style: TextStyle(
-                                      color: fav.price4hPercent >= 0
-                                          ? Colors.green
-                                          : Colors.red,
-                                      fontSize: 12,
+                                    Text(
+                                      '${favorite.price4hPercent.toStringAsFixed(2)}%',
+                                      style: TextStyle(
+                                        color: favorite.price4hPercent >= 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  const Text(
-                                    '24h: ',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      '24h: ',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    '${fav.price24hPercent.toStringAsFixed(2)}%',
-                                    style: TextStyle(
-                                      color: fav.price24hPercent >= 0
-                                          ? Colors.green
-                                          : Colors.red,
-                                      fontSize: 12,
+                                    Text(
+                                      '${favorite.price24hPercent.toStringAsFixed(2)}%',
+                                      style: TextStyle(
+                                        color: favorite.price24hPercent >= 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   )).toList(),
