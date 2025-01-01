@@ -16,7 +16,7 @@ class WatchScreen extends StatefulWidget {
   State<WatchScreen> createState() => _WatchScreenState();
 }
 
-class _WatchScreenState extends State<WatchScreen> {
+class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStateMixin {
   String debugText = 'Waiting for data...';
   Summary? summary;
   List<Trade> trades = [];
@@ -26,6 +26,8 @@ class _WatchScreenState extends State<WatchScreen> {
   Color backgroundColor = Colors.black;
   double? _lastBtcPrice;
   final double _priceChangeThreshold = 1.0;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
 
   // Функция для определения цвета фона
   Color _getBackgroundColor() {
@@ -67,7 +69,21 @@ class _WatchScreenState extends State<WatchScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchData(); // Первоначальная загрузка
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _fetchData();
+
     // Автообновление каждые 30 секунд
     _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _fetchData();
@@ -76,6 +92,7 @@ class _WatchScreenState extends State<WatchScreen> {
 
   @override
   void dispose() {
+    _animationController.dispose();
     _timer?.cancel();
     super.dispose();
   }
@@ -142,6 +159,13 @@ class _WatchScreenState extends State<WatchScreen> {
 
         // Проверяем изменение цены BTC
         _checkBtcPriceChange(newFavorites);
+
+        // Запускаем анимацию если PNL изменился
+        if (summary != null && summary!.totalPnl != newSummary.totalPnl) {
+          _animationController.forward().then((_) {
+            _animationController.reverse();
+          });
+        }
 
         setState(() {
           summary = newSummary;
@@ -290,44 +314,210 @@ class _WatchScreenState extends State<WatchScreen> {
     return pnl.toStringAsFixed(2);
   }
 
+  // Обновляем метод отображения PNL
+  Widget _buildPnlText(double pnl) {
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Text(
+            formatPnl(pnl),
+            style: TextStyle(
+              color: pnl >= 0 ? Colors.green : Colors.red,
+              fontSize: 20 * _scaleAnimation.value,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Debug: $debugText',
-                style: const TextStyle(
-                  color: Colors.yellow,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              if (trades.isNotEmpty) ...[
-                const Text(
-                  'Active Trades:',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 500),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Debug: $debugText',
+                  style: const TextStyle(
+                    color: Colors.yellow,
+                    fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 4),
-                ...trades.map((trade) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4.0),
-                  child: InkWell(
-                    onTap: () => _showOrdersDialog(context, trade),
+                const SizedBox(height: 16),
+
+                if (trades.isNotEmpty) ...[
+                  const Text(
+                    'Active Trades:',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...trades.map((trade) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: InkWell(
+                      onTap: () => _showOrdersDialog(context, trade),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${trade.symbol} (${trade.type})',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'PNL: ${formatPnl(trade.pnl)}',
+                                  style: TextStyle(
+                                    color: trade.pnl >= 0 ? Colors.green : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Avg: ${trade.averagePrice.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  'Current: ${trade.currentPrice.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )).toList(),
+                ],
+
+                const SizedBox(height: 16),
+
+                if (summary != null) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Total: ',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          _buildPnlText(summary!.totalPnl),
+                        ],
+                      ),
+                      // Today и Period PNL
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Today: ',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                formatPnl(summary!.todayPnl),
+                                style: TextStyle(
+                                  color: summary!.todayPnl >= 0 ? Colors.green : Colors.red,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Text(
+                                'Period: ',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                formatPnl(summary!.periodPnl ?? 0.0),
+                                style: TextStyle(
+                                  color: (summary!.periodPnl ?? 0.0) >= 0 ? Colors.green : Colors.red,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      _fetchData();
+                      await Vibration.vibrate(duration: 100);
+                    },
+                    child: const Text('Обновить'),
+                  ),
+                ),
+                if (favorites.isNotEmpty) ...[
+                  const Text(
+                    'Favorites:',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...favorites.map((fav) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
+                        border: Border.all(color: Colors.grey.withOpacity(0.5)),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Column(
@@ -337,18 +527,17 @@ class _WatchScreenState extends State<WatchScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '${trade.symbol} (${trade.type})',
+                                fav.code,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
-                                'PNL: ${formatPnl(trade.pnl)}',
-                                style: TextStyle(
-                                  color: trade.pnl >= 0 ? Colors.green : Colors.red,
-                                  fontWeight: FontWeight.bold,
+                                fav.price.toStringAsFixed(
+                                    fav.price < 1 ? 4 : 1
                                 ),
+                                style: const TextStyle(color: Colors.white),
                               ),
                             ],
                           ),
@@ -356,260 +545,110 @@ class _WatchScreenState extends State<WatchScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Avg: ${trade.averagePrice.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                ),
+                              Row(
+                                children: [
+                                  const Text(
+                                    '1h: ',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${fav.price1hPercent.toStringAsFixed(2)}%',
+                                    style: TextStyle(
+                                      color: fav.price1hPercent >= 0
+                                          ? Colors.green
+                                          : Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                'Current: ${trade.currentPrice.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                ),
+                              Row(
+                                children: [
+                                  const Text(
+                                    '4h: ',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${fav.price4hPercent.toStringAsFixed(2)}%',
+                                    style: TextStyle(
+                                      color: fav.price4hPercent >= 0
+                                          ? Colors.green
+                                          : Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  const Text(
+                                    '24h: ',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${fav.price24hPercent.toStringAsFixed(2)}%',
+                                    style: TextStyle(
+                                      color: fav.price24hPercent >= 0
+                                          ? Colors.green
+                                          : Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                  ),
-                )).toList(),
-              ],
+                  )).toList(),
+                ],
 
-              const SizedBox(height: 16),
-
-              if (summary != null) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Основной Total PNL
-                    Row(
-                      children: [
-                        Text(
-                          'Total: ',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          formatPnl(summary!.totalPnl),
-                          style: TextStyle(
-                            color: summary!.totalPnl >= 0 ? Colors.green : Colors.red,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Today и Period PNL
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Today: ',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                            ),
-                            Text(
-                              formatPnl(summary!.todayPnl),
-                              style: TextStyle(
-                                color: summary!.todayPnl >= 0 ? Colors.green : Colors.red,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Text(
-                              'Period: ',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                            ),
-                            Text(
-                              formatPnl(summary!.periodPnl ?? 0.0),
-                              style: TextStyle(
-                                color: (summary!.periodPnl ?? 0.0) >= 0 ? Colors.green : Colors.red,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                const SizedBox(height: 24),
+                const Divider(color: Colors.grey),
                 const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      // Очищаем токен
+                      await AuthService().logout();
+                      // Переходим на экран логина
+                      if (mounted) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (_) => const LoginScreen(),
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.withOpacity(0.8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'Выйти',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
               ],
-
-              const SizedBox(height: 16),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    _fetchData();
-                    await Vibration.vibrate(duration: 100);
-                  },
-                  child: const Text('Обновить'),
-                ),
-              ),
-              if (favorites.isNotEmpty) ...[
-                const Text(
-                  'Favorites:',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                ...favorites.map((fav) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.withOpacity(0.5)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              fav.code,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              fav.price.toStringAsFixed(
-                                  fav.price < 1 ? 4 : 1
-                              ),
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  '1h: ',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  '${fav.price1hPercent.toStringAsFixed(2)}%',
-                                  style: TextStyle(
-                                    color: fav.price1hPercent >= 0
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                const Text(
-                                  '4h: ',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  '${fav.price4hPercent.toStringAsFixed(2)}%',
-                                  style: TextStyle(
-                                    color: fav.price4hPercent >= 0
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                const Text(
-                                  '24h: ',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  '${fav.price24hPercent.toStringAsFixed(2)}%',
-                                  style: TextStyle(
-                                    color: fav.price24hPercent >= 0
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                )).toList(),
-              ],
-
-              const SizedBox(height: 24),
-              const Divider(color: Colors.grey),
-              const SizedBox(height: 16),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    // Очищаем токен
-                    await AuthService().logout();
-                    // Переходим на экран логина
-                    if (mounted) {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen(),
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.withOpacity(0.8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 12,
-                    ),
-                  ),
-                  child: const Text(
-                    'Выйти',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),
