@@ -24,6 +24,8 @@ class _WatchScreenState extends State<WatchScreen> {
   Timer? _timer;
   Summary? _lastSummary;
   Color backgroundColor = Colors.black;
+  double? _lastBtcPrice;
+  final double _priceChangeThreshold = 1.0;
 
   // Функция для определения цвета фона
   Color _getBackgroundColor() {
@@ -78,28 +80,46 @@ class _WatchScreenState extends State<WatchScreen> {
     super.dispose();
   }
 
-  Future<void> _showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-    AndroidNotificationDetails(
-      'crypto_watch_channel',
-      'Crypto Watch Notifications',
-      importance: Importance.max,
-      priority: Priority.high,
+  void _checkBtcPriceChange(List<Favorite> favorites) {
+    final btc = favorites.firstWhere(
+      (f) => f.code == 'BTCUSDT',
+      orElse: () => Favorite(
+        id: 0,
+        code: 'BTCUSDT',
+        price: 0,
+        price24h: 0,
+        price4h: 0,
+        price1h: 0,
+        price24hPercent: 0,
+        price4hPercent: 0,
+        price1hPercent: 0,
+      ),
     );
-    const NotificationDetails platformChannelSpecifics =
-    NotificationDetails(android: androidPlatformChannelSpecifics);
 
-    // await flutterLocalNotificationsPlugin.show(
-    //   0,
-    //   title,
-    //   body,
-    //   platformChannelSpecifics,
-    // );
+    if (btc.id != 0 && _lastBtcPrice != null) {
+      final priceChange = ((btc.price - _lastBtcPrice!) / _lastBtcPrice! * 100).abs();
+
+      if (priceChange >= _priceChangeThreshold) {
+        final isUp = btc.price > _lastBtcPrice!;
+        final direction = isUp ? '↑' : '↓';
+
+        NotificationService.instance.showNotification(
+          title: 'BTC Price Alert',
+          body: 'BTC price ${direction} ${priceChange.toStringAsFixed(1)}% \n'
+               'From: ${_lastBtcPrice!.toStringAsFixed(1)} \n'
+               'To: ${btc.price.toStringAsFixed(1)}',
+        );
+
+        // Вибрация в зависимости от направления движения
+        Vibration.vibrate(duration: isUp ? 600 : 2000);
+      }
+    }
+
+    // Обновляем последнюю цену
+    _lastBtcPrice = btc.price;
   }
 
   Future<void> _fetchData() async {
-    final token = await AuthService().getToken();
-
     setState(() {
       debugText = 'Fetching data...';
     });
@@ -109,13 +129,19 @@ class _WatchScreenState extends State<WatchScreen> {
         Uri.parse('http://37.143.9.19/api/v1/watch'),
         headers: {
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer ${await AuthService().getToken()}',
         },
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final newSummary = Summary.fromJson(data['summary']);
+        final newFavorites = (data['favorites'] as List)
+            .map((fav) => Favorite.fromJson(fav))
+            .toList();
+
+        // Проверяем изменение цены BTC
+        _checkBtcPriceChange(newFavorites);
 
         setState(() {
           summary = newSummary;
@@ -123,28 +149,10 @@ class _WatchScreenState extends State<WatchScreen> {
           trades = (data['trades'] as List)
               .map((trade) => Trade.fromJson(trade))
               .toList();
-          favorites = (data['favorites'] as List)
-              .map((fav) => Favorite.fromJson(fav))
-              .toList();
+          favorites = newFavorites;
           debugText = 'Data loaded successfully';
-          // Обновляем цвет фона
           backgroundColor = _getBackgroundColor();
         });
-
-        // Проверяем изменения в PNL
-        if (_lastSummary != null) {
-          if (newSummary.todayPnl != _lastSummary!.todayPnl) {
-            final difference = newSummary.todayPnl - _lastSummary!.todayPnl;
-            final isPositive = difference > 0;
-
-            // Вибрация и уведомление при изменении PNL
-            Vibration.vibrate(duration: isPositive ? 100 : 300);
-            await NotificationService.instance.showNotification(
-              title: 'Crypto Watch',
-              body: 'PNL changed by ${difference.toStringAsFixed(2)}',
-            );
-          }
-        }
       }
     } catch (e) {
       setState(() {
@@ -449,7 +457,10 @@ class _WatchScreenState extends State<WatchScreen> {
               const SizedBox(height: 16),
               Center(
                 child: ElevatedButton(
-                  onPressed: _fetchData,
+                  onPressed: () async {
+                    _fetchData();
+                    await Vibration.vibrate(duration: 100);
+                  },
                   child: const Text('Обновить'),
                 ),
               ),
