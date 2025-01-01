@@ -7,7 +7,7 @@ import 'dart:async';
 import '../models.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
-
+import 'login_screen.dart';
 
 class WatchScreen extends StatefulWidget {
   const WatchScreen({super.key});
@@ -278,6 +278,10 @@ class _WatchScreenState extends State<WatchScreen> {
     );
   }
 
+  String formatPnl(double pnl) {
+    return pnl.toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -297,32 +301,6 @@ class _WatchScreenState extends State<WatchScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              if (summary != null) ...[
-                Text(
-                  'Total: ${summary!.totalPnl.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Today: ${summary!.todayPnl.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: summary!.todayPnl >= 0 ? Colors.green : Colors.red,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  'Period Pnl: ${summary!.periodPnl.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: summary!.periodPnl >= 0 ? Colors.green : Colors.red,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
 
               if (trades.isNotEmpty) ...[
                 const Text(
@@ -358,7 +336,7 @@ class _WatchScreenState extends State<WatchScreen> {
                                 ),
                               ),
                               Text(
-                                'PNL: ${trade.pnl.toStringAsFixed(1)}',
+                                'PNL: ${formatPnl(trade.pnl)}',
                                 style: TextStyle(
                                   color: trade.pnl >= 0 ? Colors.green : Colors.red,
                                   fontWeight: FontWeight.bold,
@@ -391,6 +369,81 @@ class _WatchScreenState extends State<WatchScreen> {
                     ),
                   ),
                 )).toList(),
+              ],
+
+              const SizedBox(height: 16),
+
+              if (summary != null) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Основной Total PNL
+                    Row(
+                      children: [
+                        Text(
+                          'Total: ',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          formatPnl(summary!.totalPnl),
+                          style: TextStyle(
+                            color: summary!.totalPnl >= 0 ? Colors.green : Colors.red,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Today и Period PNL
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Today: ',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              formatPnl(summary!.todayPnl),
+                              style: TextStyle(
+                                color: summary!.todayPnl >= 0 ? Colors.green : Colors.red,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Text(
+                              'Period: ',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              formatPnl(summary!.periodPnl ?? 0.0),
+                              style: TextStyle(
+                                color: (summary!.periodPnl ?? 0.0) >= 0 ? Colors.green : Colors.red,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
               ],
 
               const SizedBox(height: 16),
@@ -510,6 +563,41 @@ class _WatchScreenState extends State<WatchScreen> {
                   ),
                 )).toList(),
               ],
+
+              const SizedBox(height: 24),
+              const Divider(color: Colors.grey),
+              const SizedBox(height: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    // Очищаем токен
+                    await AuthService().logout();
+                    // Переходим на экран логина
+                    if (mounted) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.withOpacity(0.8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: const Text(
+                    'Выйти',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
