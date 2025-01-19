@@ -283,6 +283,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                 Text(
                   'Average: ${trade.averagePrice.toStringAsFixed(2)}\n'
                       'Current: ${trade.currentPrice.toStringAsFixed(2)}\n'
+                      'Target profit: ${trade.targetProfitAmount.toStringAsFixed(2)}\n'
                       'Target profit price: ${trade.targetProfitPrice.toStringAsFixed(2)} (${trade.targetProfitPercent.toStringAsFixed(2)} %)\n'
                       'PNL: ${trade.pnl.toStringAsFixed(2)}',
                   style: const TextStyle(fontSize: 14),

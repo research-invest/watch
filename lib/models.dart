@@ -63,6 +63,7 @@ class Trade {
   final double liquidationPrice;
   final double targetProfitPrice;
   final double targetProfitPercent;
+  final double targetProfitAmount;
   final List<Order> orders;
 
   Trade({
@@ -77,6 +78,7 @@ class Trade {
     required this.liquidationPrice,
     required this.targetProfitPrice,
     required this.targetProfitPercent,
+    required this.targetProfitAmount,
     required this.orders,
   });
 
@@ -107,6 +109,9 @@ class Trade {
       targetProfitPercent: json['target_profit_percent'] is String
           ? double.parse(json['target_profit_percent'])
           : json['target_profit_percent'].toDouble(),
+      targetProfitAmount: json['target_profit_amount'] is String
+          ? double.parse(json['target_profit_amount'])
+          : json['target_profit_amount'].toDouble(),
       orders: (json['orders'] as List)
           .map((order) => Order.fromJson(order))
           .toList(),
