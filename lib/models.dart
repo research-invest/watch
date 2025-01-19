@@ -60,6 +60,7 @@ class Trade {
   final double pnl;
   final bool canCancel;
   final double averagePrice;
+  final double liquidationPrice;
   final List<Order> orders;
 
   Trade({
@@ -71,6 +72,7 @@ class Trade {
     required this.pnl,
     required this.canCancel,
     required this.averagePrice,
+    required this.liquidationPrice,
     required this.orders,
   });
 
@@ -92,6 +94,9 @@ class Trade {
       averagePrice: json['average_price'] is String
           ? double.parse(json['average_price'])
           : json['average_price'].toDouble(),
+      liquidationPrice: json['liquidation_price'] is String
+          ? double.parse(json['liquidation_price'])
+          : json['liquidation_price'].toDouble(),
       orders: (json['orders'] as List)
           .map((order) => Order.fromJson(order))
           .toList(),

@@ -188,7 +188,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
   Future<bool> _closeTrade(int tradeId) async {
     try {
       final response = await http.post(
-        Uri.parse('http://37.143.9.19/api/v1/watch/trades/{trade}/cancel'),
+        Uri.parse('http://37.143.9.19/api/v1/watch/trades/{trade}/cancel'), // selll.ru
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -283,6 +283,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                 Text(
                   'Average: ${trade.averagePrice.toStringAsFixed(2)}\n'
                       'Current: ${trade.currentPrice.toStringAsFixed(2)}\n'
+                      'Liq price: ${trade.liquidationPrice.toStringAsFixed(2)}\n'
                       'PNL: ${trade.pnl.toStringAsFixed(2)}',
                   style: const TextStyle(fontSize: 14),
                 ),
@@ -329,6 +330,54 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
               fontWeight: FontWeight.bold,
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showLogoutConfirmDialog(BuildContext context) async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: const Text(
+            'Подтверждение',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Вы действительно хотите выйти?',
+            style: TextStyle(color: Colors.white),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Отмена',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                // Сначала закрываем диалог
+                Navigator.of(context).pop();
+                // Очищаем токен
+                await AuthService().logout();
+                // Переходим на экран логина
+                if (mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const LoginScreen(),
+                    ),
+                  );
+                }
+              },
+              child: const Text(
+                'Выйти',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -404,6 +453,13 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                               children: [
                                 Text(
                                   'Avg: ${trade.averagePrice.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  'Liq price: ${trade.liquidationPrice.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     color: Colors.grey,
                                     fontSize: 12,
@@ -542,7 +598,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                                 ),
                                 Text(
                                   favorite.price.toStringAsFixed(
-                                      favorite.price < 1 ? 4 : 1
+                                      favorite.price < 1 ? 6 : 1
                                   ),
                                   style: const TextStyle(color: Colors.white),
                                 ),
@@ -626,18 +682,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                 const SizedBox(height: 16),
                 Center(
                   child: ElevatedButton(
-                    onPressed: () async {
-                      // Очищаем токен
-                      await AuthService().logout();
-                      // Переходим на экран логина
-                      if (mounted) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: () => _showLogoutConfirmDialog(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.withOpacity(0.8),
                       padding: const EdgeInsets.symmetric(
