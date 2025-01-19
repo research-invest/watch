@@ -283,7 +283,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                 Text(
                   'Average: ${trade.averagePrice.toStringAsFixed(2)}\n'
                       'Current: ${trade.currentPrice.toStringAsFixed(2)}\n'
-                      'Liq price: ${trade.liquidationPrice.toStringAsFixed(2)}\n'
+                      'Target profit price: ${trade.targetProfitPrice.toStringAsFixed(2)} (${trade.targetProfitPercent.toStringAsFixed(2)} %)\n'
                       'PNL: ${trade.pnl.toStringAsFixed(2)}',
                   style: const TextStyle(fontSize: 14),
                 ),
@@ -459,7 +459,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                                   ),
                                 ),
                                 Text(
-                                  'Liq price: ${trade.liquidationPrice.toStringAsFixed(2)}',
+                                  'Liq: ${trade.liquidationPrice.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     color: Colors.grey,
                                     fontSize: 12,
