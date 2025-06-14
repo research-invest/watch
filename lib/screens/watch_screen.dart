@@ -143,7 +143,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
 
     try {
       final response = await http.get(
-        Uri.parse('http://37.143.9.19/api/v1/watch'),
+        Uri.parse('https://selll.ru/api/v1/watch'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer ${await AuthService().getToken()}',
@@ -188,7 +188,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
   Future<bool> _closeTrade(int tradeId) async {
     try {
       final response = await http.post(
-        Uri.parse('http://37.143.9.19/api/v1/watch/trades/{trade}/cancel'), // selll.ru
+        Uri.parse('https://selll.ru/api/v1/watch/trades/{trade}/cancel'),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
