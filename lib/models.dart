@@ -170,3 +170,69 @@ class Favorite {
     );
   }
 }
+
+class WatchNotification {
+  final int id;
+  final String symbol;
+  final String action;
+  final String strategy;
+  final String price;
+  final String exchange;
+  final String timeframe;
+  final bool isRead;
+  final String createdAt;
+  final String createdAtHuman;
+
+  WatchNotification({
+    required this.id,
+    required this.symbol,
+    required this.action,
+    required this.strategy,
+    required this.price,
+    required this.exchange,
+    required this.timeframe,
+    required this.isRead,
+    required this.createdAt,
+    required this.createdAtHuman,
+  });
+
+  factory WatchNotification.fromJson(Map<String, dynamic> json) {
+    return WatchNotification(
+      id: json['id'],
+      symbol: json['symbol'],
+      action: json['action'],
+      strategy: json['strategy'],
+      price: json['price'],
+      exchange: json['exchange'],
+      timeframe: json['timeframe'],
+      isRead: json['is_read'],
+      createdAt: json['created_at'],
+      createdAtHuman: json['created_at_human'],
+    );
+  }
+}
+
+class NotificationResponse {
+  final bool success;
+  final List<WatchNotification> data;
+  final Map<String, dynamic> pagination;
+  final Map<String, dynamic> counters;
+
+  NotificationResponse({
+    required this.success,
+    required this.data,
+    required this.pagination,
+    required this.counters,
+  });
+
+  factory NotificationResponse.fromJson(Map<String, dynamic> json) {
+    return NotificationResponse(
+      success: json['success'],
+      data: (json['data'] as List)
+          .map((item) => WatchNotification.fromJson(item))
+          .toList(),
+      pagination: json['pagination'],
+      counters: json['counters'],
+    );
+  }
+}

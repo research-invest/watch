@@ -21,13 +21,17 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
   Summary? summary;
   List<Trade> trades = [];
   List<Favorite> favorites = [];
+  List<WatchNotification> notifications = [];
   Timer? _timer;
+  Timer? _notificationTimer;
   Summary? _lastSummary;
   Color backgroundColor = Colors.black;
   double? _lastBtcPrice;
   final double _priceChangeThreshold = 1.0;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  int _unreadCount = 0;
+  bool _showNotifications = false;
 
   // Функция для определения цвета фона
   Color _getBackgroundColor() {
@@ -83,10 +87,16 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
     ));
 
     _fetchData();
+    _fetchNotifications();
 
     // Автообновление каждые 30 секунд
     _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _fetchData();
+    });
+
+    // Автообновление уведомлений каждые 60 секунд
+    _notificationTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
+      _fetchNotifications();
     });
   }
 
@@ -94,6 +104,7 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
   void dispose() {
     _animationController.dispose();
     _timer?.cancel();
+    _notificationTimer?.cancel();
     super.dispose();
   }
 
@@ -134,6 +145,139 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
 
     // Обновляем последнюю цену
     _lastBtcPrice = btc.price;
+  }
+
+  Future<void> _fetchNotifications() async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://selll.ru/api/v1/watch/notifications'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${await AuthService().getToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final notificationResponse = NotificationResponse.fromJson(data);
+
+        setState(() {
+          notifications = notificationResponse.data;
+          _unreadCount = notificationResponse.counters['total_unread'] ?? 0;
+        });
+      }
+    } catch (e) {
+      print('Error fetching notifications: $e');
+    }
+  }
+
+  Future<bool> _markNotificationAsRead(int notificationId) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('https://selll.ru/api/v1/watch/notification/$notificationId/mark-as-read'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${await AuthService().getToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Обновляем список уведомлений
+        await _fetchNotifications();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Error marking notification as read: $e');
+      return false;
+    }
+  }
+
+  void _showNotificationDetails(BuildContext context, WatchNotification notification) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(
+            'Уведомление',
+            style: const TextStyle(color: Colors.white, fontSize: 18),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildNotificationDetail('Символ', notification.symbol),
+              _buildNotificationDetail('Действие', notification.action.toUpperCase()),
+              _buildNotificationDetail('Стратегия', notification.strategy),
+              _buildNotificationDetail('Цена', notification.price),
+              _buildNotificationDetail('Биржа', notification.exchange),
+              _buildNotificationDetail('Таймфрейм', '${notification.timeframe} мин'),
+              _buildNotificationDetail('Время', notification.createdAtHuman),
+            ],
+          ),
+          actions: [
+            if (!notification.isRead)
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  final success = await _markNotificationAsRead(notification.id);
+                  if (success && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Уведомление отмечено как прочитанное'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Отметить как прочитанное',
+                  style: TextStyle(color: Colors.blue),
+                ),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Закрыть',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildNotificationDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchData() async {
@@ -554,11 +698,207 @@ class _WatchScreenState extends State<WatchScreen> with SingleTickerProviderStat
                   child: ElevatedButton(
                     onPressed: () async {
                       _fetchData();
+                      _fetchNotifications();
                       await Vibration.vibrate(duration: 100);
                     },
                     child: const Text('Обновить'),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // Секция уведомлений
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Уведомления:',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (_unreadCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$_unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+
+                if (notifications.isNotEmpty) ...[
+                  ...(_showNotifications ? notifications : notifications.take(5)).map((notification) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: InkWell(
+                      onTap: () => _showNotificationDetails(context, notification),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: notification.isRead
+                                ? Colors.grey.withOpacity(0.3)
+                                : Colors.blue.withOpacity(0.5),
+                            width: notification.isRead ? 1 : 2,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                          color: notification.isRead
+                              ? Colors.grey.withOpacity(0.1)
+                              : Colors.blue.withOpacity(0.1),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    notification.symbol,
+                                    style: TextStyle(
+                                      color: notification.isRead ? Colors.grey : Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: notification.action == 'buy'
+                                        ? Colors.green.withOpacity(0.3)
+                                        : Colors.red.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    notification.action.toUpperCase(),
+                                    style: TextStyle(
+                                      color: notification.action == 'buy'
+                                          ? Colors.green
+                                          : Colors.red,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Цена: ${notification.price}',
+                                  style: TextStyle(
+                                    color: notification.isRead ? Colors.grey : Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  notification.exchange,
+                                  style: TextStyle(
+                                    color: notification.isRead ? Colors.grey : Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  '${notification.timeframe}м',
+                                  style: TextStyle(
+                                    color: notification.isRead ? Colors.grey : Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  notification.createdAtHuman,
+                                  style: TextStyle(
+                                    color: notification.isRead ? Colors.grey : Colors.grey,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                if (!notification.isRead)
+                                  TextButton(
+                                    onPressed: () async {
+                                      final success = await _markNotificationAsRead(notification.id);
+                                      if (success && context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Отмечено как прочитанное'),
+                                            backgroundColor: Colors.green,
+                                            duration: Duration(seconds: 1),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      minimumSize: Size.zero,
+                                    ),
+                                    child: const Text(
+                                      'Прочитано',
+                                      style: TextStyle(
+                                        color: Colors.blue,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )).toList(),
+
+                  if (notifications.length > 5)
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _showNotifications = !_showNotifications;
+                          });
+                        },
+                        child: Text(
+                          _showNotifications ? 'Скрыть' : 'Показать все (${notifications.length})',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ] else ...[
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Text(
+                        'Нет уведомлений',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+
                 if (favorites.isNotEmpty) ...[
                   const Text(
                     'Favorites:',
